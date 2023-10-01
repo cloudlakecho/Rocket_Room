@@ -7,8 +7,8 @@
 # Work? - Not run yet
 #
 # To do`
-#     Make runtime environment
-#     Download dataset and train
+#     Please check under
+
 #     Test - generate some script
 #
 
@@ -57,10 +57,32 @@ from tensorflow.keras import layers
 # from tensorflow.keras.layers import TextVectorization
 from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
 import numpy as np
-import os
+import argparse, os, pdb, sys
 import re
 import string
 import random
+from pathlib import Path
+
+
+EARLY_DEBUGGING = False
+DEBUGGING = True
+
+
+def getting_arg():
+    parser = argparse.ArgumentParser(description='Make data')
+    parser.add_argument('--dataset', dest='dataset',
+                    default='/home/cloud/data/',
+                    help='dataset base folder location')
+    parser.add_argument('--in_file', dest='in_file',
+                    help='input file name')
+    parser.add_argument('--in_folder', dest='in_folder',
+                help='input folder name')
+    parser.add_argument('--out_file', dest='out_file',
+                        help='output file name')
+    parser.add_argument('--choice', dest='choice', type=str,
+                    help='Function choice: Catastropy, Smaller, Pattern')
+
+    return parser
 
 
 """
@@ -141,17 +163,9 @@ class TokenAndPositionEmbedding(layers.Layer):
 
         return x + positions
 
-
 """
 ## Implement the miniature GPT model
 """
-vocab_size = 20000  # Only consider the top 20k words
-maxlen = 80  # Max sequence size
-embed_dim = 256  # Embedding size for each token
-num_heads = 2  # Number of attention heads
-feed_forward_dim = 256  # Hidden layer size in feed forward network inside transformer
-
-
 def create_model():
     inputs = layers.Input(shape=(maxlen,), dtype=tf.int32)
     embedding_layer = TokenAndPositionEmbedding(maxlen, vocab_size, embed_dim)
@@ -167,62 +181,16 @@ def create_model():
     )  # No loss and optimization based on word embeddings from transformer block
     return model
 
-
-"""
-## Prepare the data for word-level language modelling
-
-Download the IMDB dataset and combine training and validation sets for a text
-generation task.
-"""
-
-"""shell
-curl -O https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
-tar -xf aclImdb_v1.tar.gz
-"""
-
-
-batch_size = 128
-
-# The dataset contains each review in a separate text file
-# The text files are present in four different folders
-# Create a list all files
-filenames = []
-directories = [
-    "aclImdb/train/pos",
-    "aclImdb/train/neg",
-    "aclImdb/test/pos",
-    "aclImdb/test/neg",
-]
-for dir in directories:
-    for f in os.listdir(dir):
-        filenames.append(os.path.join(dir, f))
-
-print(f"{len(filenames)} files")
-
-# Create a dataset from text files
-random.shuffle(filenames)
-text_ds = tf.data.TextLineDataset(filenames)
-text_ds = text_ds.shuffle(buffer_size=256)
-text_ds = text_ds.batch(batch_size)
-
-
 def custom_standardization(input_string):
+
+    if (EARLY_DEBUGGING):
+        pdb.set_trace()
+
     """Remove html line-break tags and handle punctuation"""
     lowercased = tf.strings.lower(input_string)
     stripped_html = tf.strings.regex_replace(lowercased, "<br />", " ")
+
     return tf.strings.regex_replace(stripped_html, f"([{string.punctuation}])", r" \1")
-
-
-# Create a vectorization layer and adapt it to the text
-vectorize_layer = TextVectorization(
-    standardize=custom_standardization,
-    max_tokens=vocab_size - 1,
-    output_mode="int",
-    output_sequence_length=maxlen + 1,
-)
-vectorize_layer.adapt(text_ds)
-vocab = vectorize_layer.get_vocabulary()  # To get words back from token indices
-
 
 def prepare_lm_inputs_labels(text):
     """
@@ -235,11 +203,6 @@ def prepare_lm_inputs_labels(text):
     x = tokenized_sentences[:, :-1]
     y = tokenized_sentences[:, 1:]
     return x, y
-
-
-text_ds = text_ds.map(prepare_lm_inputs_labels, num_parallel_calls=tf.data.AUTOTUNE)
-text_ds = text_ds.prefetch(tf.data.AUTOTUNE)
-
 
 """
 ## Implement a Keras callback for generating text
@@ -307,23 +270,110 @@ class TextGenerator(keras.callbacks.Callback):
         print(f"generated text:\n{txt}\n")
 
 
-# Tokenize starting prompt
-word_to_index = {}
-for index, word in enumerate(vocab):
-    word_to_index[word] = index
+# ----- ----- ----- ----- ----- ----- ----- -----
+def main(args):
 
-start_prompt = "this movie is"
-start_tokens = [word_to_index.get(_, 1) for _ in start_prompt.split()]
-num_tokens_generated = 40
-text_gen_callback = TextGenerator(num_tokens_generated, start_tokens, vocab)
+    # To do
+    # Check GPU is available
+    # Find which data processing take most of time.
+    
+
+    """
+    ## Implement the miniature GPT model
+    """
+    vocab_size = 20000  # Only consider the top 20k words
+    maxlen = 80  # Max sequence size
+    embed_dim = 256  # Embedding size for each token
+    num_heads = 2  # Number of attention heads
+    feed_forward_dim = 256  # Hidden layer size in feed forward network inside transformer
 
 
-"""
-## Train the model
+    """
+    ## Prepare the data for word-level language modelling
 
-Note: This code should preferably be run on GPU.
-"""
+    Download the IMDB dataset and combine training and validation sets for a text
+    generation task.
+    """
 
-model = create_model()
+    """shell
+    curl -O https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
+    tar -xf aclImdb_v1.tar.gz
+    """
 
-model.fit(text_ds, verbose=2, epochs=25, callbacks=[text_gen_callback])
+
+    batch_size = 128
+
+    # The dataset contains each review in a separate text file
+    # The text files are present in four different folders
+    # Create a list all files
+    filenames = []
+    directories = [
+        "aclImdb/train/pos",
+        "aclImdb/train/neg",
+        "aclImdb/test/pos",
+        "aclImdb/test/neg",
+    ]
+
+    if (EARLY_DEBUGGING):
+        pdb.set_trace()
+    directories = [Path(args.dataset) / i for i in directories]
+
+    for dir in directories:
+        for f in os.listdir(dir):
+            filenames.append(os.path.join(dir, f))
+
+    print("-----\n", f"{len(filenames)} files", "\n-----")
+
+    # Create a dataset from text files
+    random.shuffle(filenames)
+    text_ds = tf.data.TextLineDataset(filenames)
+    text_ds = text_ds.shuffle(buffer_size=256)
+    text_ds = text_ds.batch(batch_size)
+
+    # To do
+    # Save text_ds as file, so avoid making everytiem
+
+    # Create a vectorization layer and adapt it to the text
+    vectorize_layer = TextVectorization(
+        standardize=custom_standardization,
+        max_tokens=vocab_size - 1,
+        output_mode="int",
+        output_sequence_length=maxlen + 1,
+    )
+    vectorize_layer.adapt(text_ds)
+    # To get words back from token indices
+    vocab = vectorize_layer.get_vocabulary()
+    # Error spot
+
+    AUTOTUNE = tf.data.experimental.AUTOTUNE
+    text_ds = text_ds.map(prepare_lm_inputs_labels,
+        num_parallel_calls=tf.data.AUTOTUNE)
+    text_ds = text_ds.prefetch(tf.data.AUTOTUNE)
+
+
+    # Tokenize starting prompt
+    word_to_index = {}
+    for index, word in enumerate(vocab):
+        word_to_index[word] = index
+
+    start_prompt = "this movie is"
+    start_tokens = [word_to_index.get(_, 1) for _ in start_prompt.split()]
+    num_tokens_generated = 40
+    text_gen_callback = TextGenerator(num_tokens_generated, start_tokens, vocab)
+
+
+    """
+    ## Train the model
+
+    Note: This code should preferably be run on GPU.
+    """
+
+    model = create_model()
+
+    model.fit(text_ds, verbose=2, epochs=25, callbacks=[text_gen_callback])
+
+
+if __name__ == '__main__':
+
+    args = getting_arg().parse_args()
+    main(args)

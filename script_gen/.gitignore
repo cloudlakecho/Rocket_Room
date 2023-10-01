@@ -1,0 +1,24 @@
+
+# Output file
+**.pyc
+
+# Compiled
+**.so
+**.o 
+
+# Document
+**.txt
+
+# Executable
+**.sh
+
+# Image
+**.png
+**.jpg
+**.jpeg
+**.gif
+
+# Virtual environment
+**/.venv
+**/.venv/
+
