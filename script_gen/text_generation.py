@@ -4,13 +4,19 @@
 #
 # Runtime environment
 #
+# How to run this code
+#    (1) Check input parameter including "dataset"
+#    (2) $ python text_generation.py
+#
 # Work? - Not run yet
 #
 # To do`
 #     Please check under
 
 #     Test - generate some script
-#
+#     Fine tuning with data of aerosapce talk
+#         possible guide: https://stackabuse.com/guide-to-fine-tuning-open-source-llms-on-custom-data/
+# 
 
 """
 Title: Text generation with a miniature GPT
@@ -88,8 +94,6 @@ def getting_arg():
 """
 ## Implement a Transformer block as a layer
 """
-
-
 def causal_attention_mask(batch_size, n_dest, n_src, dtype):
     """
     Mask the upper half of the dot product matrix in self attention.
@@ -132,6 +136,7 @@ class TransformerBlock(layers.Layer):
         out1 = self.layernorm1(inputs + attention_output)
         ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output)
+
         return self.layernorm2(out1 + ffn_output)
 
 
@@ -151,7 +156,8 @@ Create two seperate embedding layers:
 class TokenAndPositionEmbedding(layers.Layer):
     def __init__(self, maxlen, vocab_size, embed_dim):
         super().__init__()
-        self.token_emb = layers.Embedding(input_dim=vocab_size, output_dim=embed_dim)
+        self.token_emb = layers.Embedding(input_dim=vocab_size,
+            output_dim=embed_dim)
         # Position embedding
         self.pos_emb = layers.Embedding(input_dim=maxlen, output_dim=embed_dim)
 
@@ -163,23 +169,31 @@ class TokenAndPositionEmbedding(layers.Layer):
 
         return x + positions
 
+
 """
 ## Implement the miniature GPT model
 """
-def create_model():
+def create_model(maxlen, vocab_size, embed_dim, num_heads, feed_forward_dim):
+
     inputs = layers.Input(shape=(maxlen,), dtype=tf.int32)
     embedding_layer = TokenAndPositionEmbedding(maxlen, vocab_size, embed_dim)
     x = embedding_layer(inputs)
+
     transformer_block = TransformerBlock(embed_dim, num_heads, feed_forward_dim)
     x = transformer_block(x)
+
     outputs = layers.Dense(vocab_size)(x)
+
     model = keras.Model(inputs=inputs, outputs=[outputs, x])
+
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     model.compile(
         "adam",
         loss=[loss_fn, None],
     )  # No loss and optimization based on word embeddings from transformer block
+
     return model
+
 
 def custom_standardization(input_string):
 
@@ -192,6 +206,7 @@ def custom_standardization(input_string):
 
     return tf.strings.regex_replace(stripped_html, f"([{string.punctuation}])", r" \1")
 
+
 def prepare_lm_inputs_labels(text):
     """
     Shift word sequences by 1 position so that the target for position (i) is
@@ -202,13 +217,12 @@ def prepare_lm_inputs_labels(text):
     tokenized_sentences = vectorize_layer(text)
     x = tokenized_sentences[:, :-1]
     y = tokenized_sentences[:, 1:]
+
     return x, y
 
 """
 ## Implement a Keras callback for generating text
 """
-
-
 class TextGenerator(keras.callbacks.Callback):
     """A callback to generate text from a trained model.
     1. Feed some starting prompt to the model
@@ -276,7 +290,7 @@ def main(args):
     # To do
     # Check GPU is available
     # Find which data processing take most of time.
-    
+
 
     """
     ## Implement the miniature GPT model
@@ -285,7 +299,8 @@ def main(args):
     maxlen = 80  # Max sequence size
     embed_dim = 256  # Embedding size for each token
     num_heads = 2  # Number of attention heads
-    feed_forward_dim = 256  # Hidden layer size in feed forward network inside transformer
+    # Hidden layer size in feed forward network inside transformer
+    feed_forward_dim = 256
 
 
     """
@@ -316,6 +331,7 @@ def main(args):
 
     if (EARLY_DEBUGGING):
         pdb.set_trace()
+
     directories = [Path(args.dataset) / i for i in directories]
 
     for dir in directories:
@@ -368,7 +384,7 @@ def main(args):
     Note: This code should preferably be run on GPU.
     """
 
-    model = create_model()
+    model = create_model(maxlen, vocab_size, embed_dim, num_heads, feed_forward_dim)
 
     model.fit(text_ds, verbose=2, epochs=25, callbacks=[text_gen_callback])
 
