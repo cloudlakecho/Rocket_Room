@@ -3,6 +3,10 @@
 # text_generation_with_miniature_gpt.py - Script generation
 #
 # Runtime environment
+#    without GPU (if you use Python 3.6 or 3.7)
+#      requirement_wo_gpu.txt
+#    with GPU
+#
 #
 # How to run this code
 #    (1) Check input parameter including "dataset"
