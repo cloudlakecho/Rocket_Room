@@ -6,7 +6,7 @@
 #    without GPU (if you use Python 3.6 or 3.7)
 #      requirement_wo_gpu.txt
 #    with GPU
-#
+#      requirment_w_gpu.yaml
 #
 # How to run this code
 #    (1) Check input parameter including "dataset"
@@ -27,6 +27,9 @@
 #     Please check before run the code
 #     2023-10-09 20:42:22.543942: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1753] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
 #     Skipping registering GPU devices...
+#        CUDNN reinstall in Anaconda? - keep looking 10.1 not 10.2
+#          ref: https://stackoverflow.com/a/71373499/5595995
+#
 
 """
 Title: Text generation with a miniature GPT

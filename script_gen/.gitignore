@@ -4,10 +4,10 @@
 
 # Compiled
 **.so
-**.o 
+**.o
 
 # Document
-**.txt
+# **.txt  # PIP using "requirement.txt"
 
 # Executable
 **.sh
@@ -21,4 +21,3 @@
 # Virtual environment
 **/.venv
 **/.venv/
-
