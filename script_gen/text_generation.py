@@ -8,15 +8,21 @@
 #    (1) Check input parameter including "dataset"
 #    (2) $ python text_generation.py
 #
+#
 # Work? - Not run yet
 #
 # To do`
+#     Looks like Tensorflow is CPU version. Please reinstall it
 #     Please check under
 
 #     Test - generate some script
 #     Fine tuning with data of aerosapce talk
 #         possible guide: https://stackabuse.com/guide-to-fine-tuning-open-source-llms-on-custom-data/
-# 
+#
+# Error spot
+#     Please check before run the code
+#     2023-10-09 20:42:22.543942: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1753] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+#     Skipping registering GPU devices...
 
 """
 Title: Text generation with a miniature GPT
@@ -66,7 +72,7 @@ import numpy as np
 import argparse, os, pdb, sys
 import re
 import string
-import random
+import random, time
 from pathlib import Path
 
 
@@ -207,7 +213,7 @@ def custom_standardization(input_string):
     return tf.strings.regex_replace(stripped_html, f"([{string.punctuation}])", r" \1")
 
 
-def prepare_lm_inputs_labels(text):
+def prepare_lm_inputs_labels(text, vectorize_layer):
     """
     Shift word sequences by 1 position so that the target for position (i) is
     word at position (i+1). The model will use all words up till position (i)
@@ -318,6 +324,14 @@ def main(args):
 
     batch_size = 128
 
+    # Tensorflwo version 2.3 has differnt parameter
+    info = tf.__version__
+    info_detail = info.split('.')
+    if (info_detail[0] == '2' and info_detail[1] == '3'):
+        AUTOTUNE = tf.data.experimental.AUTOTUNE
+    else:
+        AUTOTUNE = tf.data.AUTOTUNE
+
     # The dataset contains each review in a separate text file
     # The text files are present in four different folders
     # Create a list all files
@@ -342,13 +356,19 @@ def main(args):
 
     # Create a dataset from text files
     random.shuffle(filenames)
+    start = time.time()
     text_ds = tf.data.TextLineDataset(filenames)
     text_ds = text_ds.shuffle(buffer_size=256)
     text_ds = text_ds.batch(batch_size)
+    end = time.time()
+    print ("Dataset building took", end - start, "sec.")
+
+    pdb.set_trace()
 
     # To do
     # Save text_ds as file, so avoid making everytiem
 
+    start = time.time()
     # Create a vectorization layer and adapt it to the text
     vectorize_layer = TextVectorization(
         standardize=custom_standardization,
@@ -359,12 +379,18 @@ def main(args):
     vectorize_layer.adapt(text_ds)
     # To get words back from token indices
     vocab = vectorize_layer.get_vocabulary()
-    # Error spot
+    end = time.time()
+    print ("Vectorization took", end - start, "sec.")
 
-    AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+    #
+    # Error spot
+    #     prepEW_lm_inputs_labels use vectorize_layer, so somehow give as parameter
+    #     what is text_ds built in map?
+    #
     text_ds = text_ds.map(prepare_lm_inputs_labels,
-        num_parallel_calls=tf.data.AUTOTUNE)
-    text_ds = text_ds.prefetch(tf.data.AUTOTUNE)
+        num_parallel_calls=AUTOTUNE)
+    text_ds = text_ds.prefetch(AUTOTUNE)
 
 
     # Tokenize starting prompt
@@ -385,8 +411,12 @@ def main(args):
     """
 
     model = create_model(maxlen, vocab_size, embed_dim, num_heads, feed_forward_dim)
-
+    start = time.time()
     model.fit(text_ds, verbose=2, epochs=25, callbacks=[text_gen_callback])
+    end = time.time()
+    print ("Training took", end - start, "sec.")
+
+    pdb.set_trace()
 
 
 if __name__ == '__main__':
